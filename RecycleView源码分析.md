@@ -1,0 +1,67 @@
+## 1总结：
+RecycleView职责是将Datas展示在它上面，但是RecycleView是一个ViewGroup,只认识View,所以需要一个中间人即Adapter来沟通把datas转化为ViewHolder.一看好像是解决问题了，但是RecycleView很懒，它并不想管理这些View,就请了一个大祭司LayoutManager来帮忙完成布局，而大祭司LayoutManager有个弱点，只懂怎么将View布局到RecycleView上，不懂的管理View,所以护法Recycler就应运而生了，LayoutManager需要View时就向护法索取View,而不需要时将废弃的View丢给Recycler。为了直接操作View的动画，使用ItenAnimator控制View变动时的动画。
+
+## 2.RecycleView是一个ViewGroup,都有measure,layout,draw三个过程，
+
+###2.1 onMeasure:RecyclerView将测绘与布局交由LayoutManager来做，LayoutManager有一个mAutoMeasure自动测量的属性，主要关注一下自动测量部分逻辑；
+
+如果宽高是EXACTLY,可以直接设置对应的宽高，结束测量
+
+如果不是，在onMeasure()开始布局处理，RecyclerView,State是个封装了RecyclerView有用的信息。State的一个变量mLayoutStep表示RecyclerView的当前的布局状态，包括STEP_START,STEP_LAYOUT,STEP_ANIMATIONS三个，分别执行三个方法step1负责记录状态，step2负责布局，step3则与step1进行比较，根据变化来触发动画。
+
+###2.2 onLayout:三步走原则，如果在onMeasure中已经完成step1与step2,则只会执行step3，否则散步依次触发
+
+disptachLayoutStep1:记录View的状态，首先遍历当前所有的View依次处理，把其信息封装成ItemHolderInfo存入mViewInfoStore调用的却是addToPreLayout方法，将信息记录在InfoRecord的preInfo变量中
+
+
+dispatchLayoutStep2：真正的布局onLayoutChildren方法
+大致流程： 找到anchor点
+       根据anchor一直向前布局，直至填充满anchor点的前面所有区域
+       根据anchor一直向后布局，直至填充满anchor点后面的所有区域
+
+### anchor点的寻找由updateAnchorInfoForLayout函数负责
+
+ 首先寻找被focus的child,有则将此作为anchor，寻找最合适的child作为anchor，将信息赋值给anchorInfo,其实anchorInfo主要记录的信息就是view的物理位置与adapter中的位置，找到后返回true,否则返回false交由上一步处理；
+
+### 之后不管怎么样都会进入fill方法：
+
+recycleByLayoutState会根据当前信息对不需要的View进行回收--->recycleViewFromStart遍历所有子View,找出逃离边界的View回收-->recycleChildren-->removeAndRecycleViewAt会调用removeViewAt(index);
+
+重新回到fill方法中layouChunk中可以使用layoutState的next方法返回一个View,通过recycle来负责
+
+
+### dispatchLayoutStep3方法
+ 与第一步相呼应，子View完成布局，信息也发生变化，第一步中的mItemAnimator和mViewInfoStore,而mItemAnimator这次调用是recordPostLayoutInformation(),mViewInfoStore调用的是addToPostLayout()之前是pre，都是记录信息；
+
+RecyclerView缓存逻辑存在多级缓存
+
+## 前面四点两位都提供了各自的实现，但也各有各自的特点：
+
+###点击事件
+ListView原生提供Item单击、长按的事件, 而RecyclerView则需要使用onTouchListener，相对自己实现会比较复杂。
+###分割线
+ListView可以很轻松的设置divider属性来显示Item之间的分割线，RecyclerView需要我们自己实现ItemDecoration，前者使用简单，后者可定制性强。
+###布局类型
+AdapterView提供了ListView与GridView两种类型，分别对应流式布局与网格式布局。RecyclerView提供了LinearLayoutManager、GridLayoutManager与之抗衡，相对而言，使用RecyclerView来进行更换布局方式更为轻松。只需要更换一个变量即可，而对于AdapterView而言则是需要更换一个View了。
+###缓存方式
+ListView使用了一个名为RecyclerBin的类负责试图的缓存，而Recycler则使用Recycler来进行缓存，原理上两者基本一致。
+在对比了几个相近点之外，我们再分别来看一下两者的不同点，先看RecyclerView：
+
+###局部刷新
+这是一个很有用的功能，在ListView中我们想局部刷新某个Item需要自己来编写刷新逻辑，而在RecyclerView中我们可以通过notifyItemChanged(position)来刷新单个Item，甚至可以通过notifyItemChanged(position, payload)来传入一个payload信息来刷新单个Item中的特定内容。
+###动画
+作为视觉动物，我相信很多人喜欢RecylerView都和它简单的动画API有关，因为之前对ListView做动画比较困难，并且不舒服。
+嵌套布局
+嵌套布局也是最近比较火的一个概念，RecyclerView实现了NestedScrollingChild接口，使得它可以和一些嵌套组件很好的工作。
+我们再来看ListView原生独有的几个特点：
+
+###头部与尾部的支持
+ListView原生支持添加头部与尾部，虽然RecyclerView可以通过定义不同的Type来做支持，但实际应用中，如果封装的不好，是很容易出问题的，因为Adapter中的数据位置与物理数据位置发生了偏移。
+多选
+支持多选、单选也是ListView的一大长处，其实如果要我们自己在RecyclerView中去做支持还是需要不少代码量的。
+多数据源的支持
+ListView提供了CursorAdapter、ArrayAdapter，可以让我们很方便的从数据库或者数组中获取数据，这在测试的时候很有用。
+综上，我们会发现RecycerView的最大特点就是灵活，正因为这种灵活，因此会牺牲了某些便利性。而AdapterView相对来讲就比较刻板，但它原生为我们提供了很多有用的方法来便于我们快速开发。ListView并不像当年的ActivityGroup，在Fragment出来后就被标记为Deprecated。两者目前还是一种互补的关系，起码在短时间内RecyclerView还并不能完全替代AdapterView，个人感觉原因有两个，一是目前太多的应用使用了ListView，并且ListView向RecyclerView转变也没有无损的方法。第二点，比如我就是想添加个头部，每个item带个点击事件这类简单的需求，ListView完全可以很轻松的胜任，没必要舍近求远来使用RecyclerView。因此，在实际应用中选择更适合自己的就好。
+
+
+

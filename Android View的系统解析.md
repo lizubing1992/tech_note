@@ -1,0 +1,4 @@
+### View的事件分发
+ 传递顺序：Activity -->Window-->View
+
+点击事件到底层的View(ViewGroup)以后，会调用ViewGroup的dispatchTouchEvent事件分发方法，然后的逻辑是这样的：如果ViewGroup的拦截事件onInterceptTouchEvent返回true,被拦截，事件交由ViewGroup处理，onTouch会屏蔽onTouchEvent。在onTouchEvnet中，如果设置mOnClickListener则onClick会被调用，如果不拦截，传给子View,子View的dispatchTouchEent会被调用，如此循环，还要说明一下，如果子View的onTouchEvnet返回false则父View的onTouchEvent会被直接调用；
