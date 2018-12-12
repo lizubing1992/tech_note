@@ -1,6 +1,6 @@
 ### 1.最开始调用Activity #startActivity
 
-###2.最终都是由Activity #startActivityForResult
+### 2.最终都是由Activity #startActivityForResult
  	//这里会启动新的Activity，核心功能都在mMainThread.getApplicationThread()中完成  
         Instrumentation.ActivityResult ar =  
             mInstrumentation.execStartActivity(  
@@ -85,7 +85,7 @@
 }  
 
 上述代码很好理解，构造一个activity记录，然后发送一个消息，所以，我们要看看Handler是如何处理这个消息的，现在转到这个Handler，它有个很短的名字叫做H
-###5.code：ActivityThread#H Handler处理这个
+### 5.code：ActivityThread#H Handler处理这个
 	//这个类太长，我只帖出了我们用到的部分  
 	private class H extends Handler {  
   
@@ -118,7 +118,7 @@
             ...  
         }  
 }  
-###6.ActivityThread#handleLaunchActivity
+### 6.ActivityThread#handleLaunchActivity
 
 	private void handleLaunchActivity(ActivityClientRecord r, Intent customIntent) {  
     // If we are getting ready to gc after going to the background, well  
